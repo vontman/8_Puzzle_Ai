@@ -1,59 +1,104 @@
-from typing import List, Iterable
+from typing import List, Any, Dict, Tuple
+from time import time
+from functools import reduce
 
-class PuzzleBoard:
-    n: int
-    arr: List[List[int]]
-    def __init__(self, n: int) -> None:
-        self.n = n
-        self.arr = [[j for j in range(i, i + 3)] for i in range(0, 9, 3)]
+import puzzle
+from gamestate import GameState
+from informed_search_algorithms import Bfs, Dfs_iter, Dfs
+from uninformed_search_algorithms import AStar
 
-def generate_random_puzzle_board(n: int) -> PuzzleBoard:
-    from random import shuffle
-    board: PuzzleBoard = PuzzleBoard(n)
-    randomized_board_arr: List[int] = sum(board.arr, [])
-    shuffle(randomized_board_arr)
-    board.arr = [[randomized_board_arr[j] for j in range(i, i + 3)] for i in range(0, 9, 3)]
-    return board
+def _find_pos(state: GameState, val: int) -> Tuple[int, int]:
+    for i in range(puzzle.N):
+        for j in range(puzzle.N):
+            if state.board[i][j] == val:
+                return (i, j)
+    raise RuntimeError("Couldn't find val(", val, " in the board.")
 
-############################ Displaying the Board ############################
-def _board_display_row(board: PuzzleBoard, row: int) -> str:
-    if row == 0:
-        return _board_display_top_row(board)
-    if row == board.n:
-        return _board_display_bottom_row(board)
+def eucledianHeuristic(state: GameState) -> float:
+    total_score: int = 0
 
-    return _board_display_mid_row(board)
+    for i in range(puzzle.N):
+        for j in range(puzzle.N):
+            val:int = puzzle.GOAL_STATE.board[i][j]
+            x, y = _find_pos(state, val)
+            total_score += (x - i)**2 + (y - j)**2
 
-def _board_display_top_row(board: PuzzleBoard) -> str:
-    return (
-            "____" * board.n + "_\n" +
-            "|   " * board.n + "|\n"
-            )
-
-def _board_display_mid_row(board: PuzzleBoard) -> str:
-    return (
-            "|___" * board.n + "|\n" +
-            "|   " * board.n + "|\n"
-            )
-
-def _board_display_bottom_row(board: PuzzleBoard) -> str:
-    return "|___" * board.n + "|\n"
-
-def _board_display(board: PuzzleBoard, row: int) -> str:
-    if row >= board.n:
-        return _board_display_row(board, row)
-
-    return _board_display_row(board, row) + ("| " + " | ".join(map(str, board.arr[row])) + " |\n" + _board_display(board, row + 1))
+    return total_score
 
 
-def board_display(board: PuzzleBoard) -> str:
-    return _board_display(board, 0)
+def manhatanHeuristic(state: GameState) -> float:
+    total_score: int = 0
 
-##############################################################################
+    for i in range(len(puzzle.GOAL_STATE.board)):
+        for j in range(len(puzzle.GOAL_STATE.board)):
+            val:int = puzzle.GOAL_STATE.board[i][j]
+            x, y = _find_pos(state, val)
+            total_score += abs(x - i) + abs(y - j)
 
-board: PuzzleBoard = PuzzleBoard(3)
-print(board_display(board))
-print(board_display(generate_random_puzzle_board(3)))
-print(board_display(generate_random_puzzle_board(3)))
-print(board_display(generate_random_puzzle_board(3)))
-print(board_display(generate_random_puzzle_board(3)))
+    return total_score
+
+
+def evaluate(init_state: GameState, search_algorithm: Any, heuristicFn: Any = None) -> None:
+    '''
+    Evaluates the path to the goal state using the specified search_algorithm.
+    Prints the full path along with cost, depth, expanded_nodes_cnt, time_elapsed.
+    Args:
+        init_state: the initial game state to be solved
+        search_algorithm: could be anything of Bfs, Dfs, Dfs_iter, AStar
+        heuristicFn(Optional): must be set when using AStar, could be either manhatanHeuristic or eucledianHeuristic
+    '''
+    print("Finding a path to goal using", search_algorithm, heuristicFn, "for board:")
+    print(puzzle.display(init_state.board))
+    curr_time = time()
+    if heuristicFn is not None:
+        found_sol, expanded_nodes_cnt, path_to_goal = search_algorithm.solve(
+            init_state, puzzle.GOAL_STATE, puzzle.generate_neighbours, heuristicFn)
+    else:
+        found_sol, expanded_nodes_cnt, path_to_goal = search_algorithm.solve(
+        init_state, puzzle.GOAL_STATE, puzzle.generate_neighbours)
+
+    time_elapsed = time() - curr_time
+    if not found_sol:
+        print("Couldn't find a path to the goal.")
+        print("Expanded nodes count:", expanded_nodes_cnt)
+        print("Running time:", time_elapsed)
+        return
+
+    for state in path_to_goal[1:]:
+        print("Move:", state.move)
+        # print("man score", manhatanHeuristic(state))
+        # print("euc score", eucledianHeuristic(state))
+        print(puzzle.display(state.board))
+
+    print("Result of using", search_algorithm, heuristicFn)
+    print("Total path cost:", path_to_goal[-1].cost)
+    print("Depth:", path_to_goal[-1].depth)
+    print("Expanded nodes count:", expanded_nodes_cnt)
+    print("Running time:", time_elapsed)
+
+
+
+'''
+some examples:
+
+1 2 5
+3 4 0
+6 7 8
+cost = 3
+
+5 7 0
+6 8 1
+3 2 4
+cost = 22
+
+3 1 6
+7 2 4
+0 5 8
+cost = 20
+'''
+board = puzzle.read_board_from_stdin()
+
+evaluate(board, AStar, manhatanHeuristic)
+evaluate(board, AStar, eucledianHeuristic)
+evaluate(board, Bfs)
+evaluate(board, Dfs)
