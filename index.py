@@ -1,6 +1,6 @@
 #TODO: Don't use classes or static methods, only use functions.
 #TODO: Follow a consistent way of representing a game where it is abstracted from the algorithm
-
+#TODO: Use a valid randomizer to only generate valid states
 
 from typing import List, Any, Dict, Tuple
 from time import time
