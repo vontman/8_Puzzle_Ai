@@ -1,3 +1,7 @@
+#TODO: Don't use classes or static methods, only use functions.
+#TODO: Follow a consistent way of representing a game where it is abstracted from the algorithm
+
+
 from typing import List, Any, Dict, Tuple
 from time import time
 from functools import reduce
